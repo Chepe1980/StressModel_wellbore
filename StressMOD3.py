@@ -344,7 +344,7 @@ if las:
 # Replace the problematic section at the end of your code with this:
 
 # Installation instructions (fixed triple quotes)
-st.sidebar.markdown("""
+#st.sidebar.markdown("""
 ### Installation Requirements:
-```bash
-pip install streamlit numpy matplotlib scipy lasio
+#```bash
+#pip install streamlit numpy matplotlib scipy lasio
