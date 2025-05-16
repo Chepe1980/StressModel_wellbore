@@ -341,6 +341,7 @@ if las:
         st.write(f"Maximum Horizontal Stress (σH) at {current_depth:.0f} m: {sigma_H[0,0,mid_depth_idx]:.0f} psi")
         st.write(f"Minimum Horizontal Stress (σh) at {current_depth:.0f} m: {sigma_h[0,0,mid_depth_idx]:.0f} psi")
         st.write(f"Pore Pressure (Pp) at {current_depth:.0f} m: {Pp[0,0,mid_depth_idx]:.0f} psi")
+# Replace the problematic section at the end of your code with this:
 
 # Installation instructions (fixed triple quotes)
 st.sidebar.markdown("""
