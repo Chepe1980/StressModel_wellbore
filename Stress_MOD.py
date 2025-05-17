@@ -24,14 +24,17 @@ with st.sidebar:
     las_file = st.file_uploader("Upload LAS File", type=['las'])
     
     if las_file:
-        try:
-            # Read LAS file
-            las = lasio.read(las_file)
-            st.success("LAS file successfully loaded!")
-            
-            # Get available curves
-            available_curves = list(las.curves.keys())
-            st.write("Available curves:", ", ".join(available_curves))
+    try:
+        # Create a BytesIO object from the uploaded file
+        las_bytes = io.BytesIO(las_file.getvalue())
+        
+        # Read LAS file directly from bytes
+        las = lasio.read(las_bytes)
+        st.success("LAS file successfully loaded!")
+        
+        # Get available curves
+        available_curves = list(las.curves.keys())
+        st.write("Available curves:", ", ".join(available_curves))
             
             # Wellbore geometry
             wellbore_radius = st.number_input("Wellbore Radius (m)", 0.1, 2.0, 0.328, 0.01)
