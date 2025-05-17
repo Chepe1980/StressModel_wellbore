@@ -24,20 +24,20 @@ with st.sidebar:
     las_file = st.file_uploader("Upload LAS File", type=['las'])
     
     if las_file:
-    try:
-        # Create a BytesIO object from the uploaded file
-        las_bytes = io.BytesIO(las_file.getvalue())
-        
-        # Read LAS file directly from bytes
-        las = lasio.read(las_bytes)
-        st.success("LAS file successfully loaded!")
-        
-        # Get available curves
-        available_curves = list(las.curves.keys())
-        st.write("Available curves:", ", ".join(available_curves))
+        try:
+            # Create a BytesIO object from the uploaded file
+            las_bytes = io.BytesIO(las_file.getvalue())
+            
+            # Read LAS file
+            las = lasio.read(las_bytes)
+            st.success("LAS file successfully loaded!")
+            
+            # Get available curves
+            available_curves = list(las.curves.keys())
+            st.write("Available curves:", ", ".join(available_curves))
             
             # Wellbore geometry
-            wellbore_radius = st.number_input("Wellbore Radius (m)", 0.1, 2.0, 0.328, 0.01)
+            wellbore_radius = st.number_input("Wellbore Radius (ft)", 0.1, 2.0, 0.328, 0.01)
             
             # Depth range selection
             depth_curve_options = [c for c in available_curves if c.upper() in ['DEPT', 'DEPTH']]
@@ -50,11 +50,11 @@ with st.sidebar:
             default_min = float(np.nanmin(depth_data))
             default_max = float(np.nanmax(depth_data))
             
-            min_depth = st.number_input("Minimum Depth (m)", 
+            min_depth = st.number_input("Minimum Depth (ft)", 
                                       min_value=default_min, 
                                       max_value=default_max, 
                                       value=default_min)
-            max_depth = st.number_input("Maximum Depth (m)", 
+            max_depth = st.number_input("Maximum Depth (ft)", 
                                       min_value=default_min, 
                                       max_value=default_max, 
                                       value=default_max)
@@ -77,7 +77,7 @@ with st.sidebar:
             resolution = st.selectbox("Model Resolution", ["Low", "Medium", "High"], index=1)
             
         except Exception as e:
-            st.error(f"Error reading LAS file: {str(e)}")
+            st.error(f"Error processing LAS file: {str(e)}")
             st.stop()
     else:
         st.warning("Please upload a LAS file to proceed")
@@ -204,7 +204,7 @@ def plot_stress_vs_depth(depth, sigma_H, sigma_h, Pp, min_depth, max_depth):
     
     # Formatting
     ax.set_xlabel('Stress (psi)')
-    ax.set_ylabel('Depth (m)')
+    ax.set_ylabel('Depth (ft)')
     ax.set_title('Stress Field vs Depth')
     ax.grid(True)
     ax.legend()
@@ -234,9 +234,9 @@ wellbore_surface = ax1.plot_surface(
     rstride=1, cstride=1, alpha=0.8
 )
 ax1.set_title('3D Wellbore Hoop Stress (psi)')
-ax1.set_xlabel('X (m)')
-ax1.set_ylabel('Y (m)')
-ax1.set_zlabel('Depth (m)')
+ax1.set_xlabel('X (ft)')
+ax1.set_ylabel('Y (ft)')
+ax1.set_zlabel('Depth (ft)')
 
 ## 2. 3D Stress Concentration
 ax2 = fig.add_subplot(232, projection='3d')
@@ -250,9 +250,9 @@ scatter = ax2.scatter(
     alpha=0.8
 )
 ax2.set_title(f'3D Stress Concentration (>{threshold_percent}% of max)')
-ax2.set_xlabel('X (m)')
-ax2.set_ylabel('Y (m)')
-ax2.set_zlabel('Depth (m)')
+ax2.set_xlabel('X (ft)')
+ax2.set_ylabel('Y (ft)')
+ax2.set_zlabel('Depth (ft)')
 
 # Add wellbore outline
 theta_wall = np.linspace(0, 2*np.pi, 50)
@@ -278,7 +278,7 @@ ax3.axhline(
     (sigma_H[0,0,mid_depth_idx] + sigma_h[0,0,mid_depth_idx])/2 - Pp[0,0,mid_depth_idx], 
     color='r', linestyle='--', label='Avg Stress - Pp'
 )
-ax3.set_title(f'Hoop Stress at Wellbore Wall\n(Depth = {current_depth:.0f} m)')
+ax3.set_title(f'Hoop Stress at Wellbore Wall\n(Depth = {current_depth:.0f} ft)')
 ax3.set_xlabel('Angle (degrees)')
 ax3.set_ylabel('Hoop Stress (psi)')
 ax3.grid(True)
@@ -336,9 +336,9 @@ st.pyplot(fig)
 
 # Show raw stress data
 st.subheader("Stress Data at Selected Depth")
-st.write(f"Maximum Horizontal Stress (σH) at {current_depth:.0f} m: {sigma_H[0,0,mid_depth_idx]:.0f} psi")
-st.write(f"Minimum Horizontal Stress (σh) at {current_depth:.0f} m: {sigma_h[0,0,mid_depth_idx]:.0f} psi")
-st.write(f"Pore Pressure (Pp) at {current_depth:.0f} m: {Pp[0,0,mid_depth_idx]:.0f} psi")
+st.write(f"Maximum Horizontal Stress (σH) at {current_depth:.0f} ft: {sigma_H[0,0,mid_depth_idx]:.0f} psi")
+st.write(f"Minimum Horizontal Stress (σh) at {current_depth:.0f} ft: {sigma_h[0,0,mid_depth_idx]:.0f} psi")
+st.write(f"Pore Pressure (Pp) at {current_depth:.0f} ft: {Pp[0,0,mid_depth_idx]:.0f} psi")
 
 # Installation instructions
 #st.sidebar.markdown("""
