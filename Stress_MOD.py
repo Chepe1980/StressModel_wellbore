@@ -338,7 +338,7 @@ st.write(f"Minimum Horizontal Stress (σh) at {current_depth:.0f} m: {sigma_h[0,
 st.write(f"Pore Pressure (Pp) at {current_depth:.0f} m: {Pp[0,0,mid_depth_idx]:.0f} psi")
 
 # Installation instructions
-st.sidebar.markdown("""
+#st.sidebar.markdown("""
 ### Installation Requirements:
-```bash
-pip install streamlit numpy matplotlib scipy lasio
+#```bash
+#pip install streamlit numpy matplotlib scipy lasio
