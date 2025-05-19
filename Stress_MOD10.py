@@ -14,7 +14,7 @@ st.title("Wellbore Stress Analysis with LAS Data")
 
 # add logo
 logo = Image.open('logo.png')
-stsidebar.image(logo, width=200)
+st.sidebar.image(logo, width=200)
 st.markdown("""
 This app calculates hoop stress distribution around a wellbore using stress field data from LAS files.
 All results are displayed in psi (pressure units).
