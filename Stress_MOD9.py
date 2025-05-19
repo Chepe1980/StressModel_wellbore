@@ -539,7 +539,7 @@ def create_2d_plots(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_
         y=[0, arrow_length*np.sin(theta_offset)],
         mode='lines+text',
         line=dict(color='red', width=3),
-        text=['', 'σH'],
+        text=['', 'σhmin'],
         textfont=dict(size=14),
         textposition='top center',
         name='Minimum Stress Direction'
