@@ -16,171 +16,11 @@ This app calculates hoop stress distribution around a wellbore using stress fiel
 All results are displayed in psi (pressure units).
 """)
 
-def main():
-    # Main window layout with columns
-    col1, col2 = st.columns([1, 3])
-    
-    with col1:
-        st.header("Input Parameters")
-        
-        # LAS file upload
-        las_file = st.file_uploader("Upload LAS File", type=['las'])
-        
-        if las_file:
-            try:
-                # Create temporary file
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.las') as tmp:
-                    tmp.write(las_file.getvalue())
-                    tmp_path = tmp.name
-                
-                # Read LAS file
-                las = lasio.read(tmp_path)
-                os.unlink(tmp_path)
-                
-                st.success("LAS file successfully loaded!")
-                
-                # Get available curves
-                available_curves = list(las.curves.keys())
-                st.write("Available curves:", ", ".join(available_curves))
-                
-                # Wellbore geometry
-                wellbore_radius = st.number_input("Wellbore Radius (ft)", 0.1, 2.0, 0.328, 0.01)
-                
-                # Depth range selection
-                depth_curve_options = [c for c in available_curves if c.upper() in ['DEPT', 'DEPTH']]
-                if not depth_curve_options:
-                    st.error("No DEPT or DEPTH curve found in LAS file")
-                    return
-                
-                depth_curve = depth_curve_options[0]
-                depth_data = las[depth_curve]
-                valid_depth_indices = ~np.isnan(depth_data)
-                depth_data = depth_data[valid_depth_indices]
-                
-                if len(depth_data) == 0:
-                    st.error("No valid depth data found")
-                    return
-                
-                default_min = float(np.nanmin(depth_data))
-                default_max = float(np.nanmax(depth_data))
-                
-                min_depth = st.number_input("Minimum Depth (ft)", 
-                                          min_value=default_min, 
-                                          max_value=default_max, 
-                                          value=default_min)
-                max_depth = st.number_input("Maximum Depth (ft)", 
-                                          min_value=default_min, 
-                                          max_value=default_max, 
-                                          value=default_max)
-                
-                # Stress field selection
-                st.subheader("Select Stress Curves")
-                sigma_H_curve = st.selectbox("Maximum Horizontal Stress (σH) curve", 
-                                           options=available_curves,
-                                           index=0)
-                sigma_h_curve = st.selectbox("Minimum Horizontal Stress (σh) curve", 
-                                           options=available_curves,
-                                           index=min(1, len(available_curves)-1))
-                Pp_curve = st.selectbox("Pore Pressure (Pp) curve", 
-                                      options=available_curves,
-                                      index=min(2, len(available_curves)-1))
-                
-                # Well orientation data
-                st.subheader("Well Orientation")
-                azimuth_curve_options = [c for c in available_curves if c.upper() in ['AZIMUTH', 'AZI', 'AZ']]
-                if azimuth_curve_options:
-                    azimuth_curve = st.selectbox("Azimuth Curve", options=azimuth_curve_options)
-                    azimuth_data = las[azimuth_curve][valid_depth_indices]
-                    default_azimuth = np.nanmean(azimuth_data)
-                    if np.isnan(default_azimuth):
-                        default_azimuth = 0.0
-                    manual_azimuth = st.number_input("Manual Azimuth Override (°)", 
-                                                   min_value=0.0, 
-                                                   max_value=360.0, 
-                                                   value=float(default_azimuth))
-                else:
-                    st.warning("No azimuth curve found in LAS file")
-                    manual_azimuth = st.number_input("Enter Wellbore Azimuth (°)", 
-                                                    min_value=0.0, 
-                                                    max_value=360.0, 
-                                                    value=0.0)
-                    azimuth_data = np.full_like(depth_data, manual_azimuth)
-                
-                # Visualization settings
-                st.subheader("Visualization Settings")
-                threshold_percent = st.slider("Stress Concentration Threshold (%)", 30, 90, 50, 5)
-                resolution = st.selectbox("Model Resolution", ["Low", "Medium", "High"], index=1)
-                
-                # Get stress data
-                sigma_H_data = las[sigma_H_curve][valid_depth_indices]
-                sigma_h_data = las[sigma_h_curve][valid_depth_indices]
-                Pp_data = las[Pp_curve][valid_depth_indices]
-                
-                # Run calculations button
-                if st.button("Run Analysis"):
-                    with st.spinner("Calculating stresses..."):
-                        # Create stress vs depth plot
-                        with col2:
-                            st.subheader("Stress Field Profile")
-                            stress_plot = plot_stress_vs_depth(depth_data, sigma_H_data, sigma_h_data, Pp_data, min_depth, max_depth)
-                            st.plotly_chart(stress_plot, use_container_width=True)
-                        
-                        # Run calculations
-                        results = calculate_stresses(
-                            depth_data, sigma_H_data, sigma_h_data, Pp_data, azimuth_data,
-                            min_depth, max_depth, wellbore_radius, resolution
-                        )
-                        
-                        if results:
-                            X, Y, Z, R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_3d, azimuth_3d = results
-                            mid_depth_idx = len(np.linspace(min_depth, max_depth, 5)) // 2
-                            current_depth = np.linspace(min_depth, max_depth, 5)[mid_depth_idx]
-                            current_azimuth = azimuth_3d[0,0,mid_depth_idx]
-                            
-                            # Show raw stress data
-                            with col2:
-                                st.subheader("Analysis Results")
-                                st.write(f"Current depth: {current_depth:.0f} ft | Azimuth: {current_azimuth:.1f}°")
-                                
-                                col_a, col_b, col_c = st.columns(3)
-                                with col_a:
-                                    st.metric(f"σH at {current_depth:.0f} ft", f"{sigma_H_3d[0,0,mid_depth_idx]:.0f} psi")
-                                with col_b:
-                                    st.metric(f"σh at {current_depth:.0f} ft", f"{sigma_h_3d[0,0,mid_depth_idx]:.0f} psi")
-                                with col_c:
-                                    st.metric(f"Pp at {current_depth:.0f} ft", f"{Pp_3d[0,0,mid_depth_idx]:.0f} psi")
-                            
-                            # Create analysis plots
-                            with col2:
-                                st.subheader("3D Visualization")
-                                fig_3d = create_3d_visualization(
-                                    X, Y, Z, hoop_stress_fd, 
-                                    wellbore_radius, current_depth, current_azimuth,
-                                    threshold_percent
-                                )
-                                st.plotly_chart(fig_3d, use_container_width=True)
-                                
-                                st.subheader("2D Plots")
-                                polar_fig, cartesian_fig = create_2d_plots(
-                                    R, Theta, Depth, hoop_stress_fd,
-                                    sigma_H_3d, sigma_h_3d, Pp_3d,
-                                    wellbore_radius, current_depth, current_azimuth
-                                )
-                                st.plotly_chart(polar_fig, use_container_width=True)
-                                st.plotly_chart(cartesian_fig, use_container_width=True)
-                                
-                                st.subheader("Stress Profiles")
-                                fig_profiles = create_stress_profiles(
-                                    R, Theta, Depth, hoop_stress_fd,
-                                    sigma_H_3d, sigma_h_3d, Pp_3d,
-                                    wellbore_radius, current_depth, current_azimuth
-                                )
-                                st.plotly_chart(fig_profiles, use_container_width=True)
-                
-            except Exception as e:
-                st.error(f"Error processing LAS file: {str(e)}")
-        else:
-            st.warning("Please upload a LAS file to proceed")
+def kirsch_hoop_stress(r, theta, sigma_H, sigma_h, wellbore_radius, Pp):
+    term1 = (sigma_H + sigma_h)/2 * (1 + wellbore_radius**2/r**2)
+    term2 = (sigma_H - sigma_h)/2 * (1 + 3*wellbore_radius**4/r**4) * np.cos(2*theta)
+    term3 = -Pp * wellbore_radius**2/r**2
+    return term1 + term2 + term3
 
 def plot_stress_vs_depth(depth, sigma_H, sigma_h, Pp, min_depth, max_depth):
     fig = go.Figure()
@@ -321,13 +161,29 @@ def calculate_stresses(depth_data, sigma_H_data, sigma_h_data, Pp_data, azimuth_
         # Solve system
         hoop_stress_fd = spsolve(A, b).reshape(R.shape)
         
-        return X, Y, Z, R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_3d, azimuth_3d
+        return {
+            'X': X,
+            'Y': Y,
+            'Z': Z,
+            'R': R,
+            'Theta': Theta,
+            'Depth': Depth,
+            'hoop_stress_fd': hoop_stress_fd,
+            'sigma_H_3d': sigma_H_3d,
+            'sigma_h_3d': sigma_h_3d,
+            'Pp_3d': Pp_3d,
+            'azimuth_3d': azimuth_3d,
+            'sigma_H': sigma_H,
+            'sigma_h': sigma_h,
+            'Pp': Pp
+        }
     
     except Exception as e:
         st.error(f"Error in stress calculations: {str(e)}")
         return None
 
-def create_3d_visualization(X, Y, Z, hoop_stress_fd, wellbore_radius, current_depth, current_azimuth, threshold_percent):
+def create_3d_visualization(X, Y, Z, hoop_stress_fd, wellbore_radius, current_depth, 
+                           current_azimuth, threshold_percent, sigma_H, sigma_h, Pp):
     mid_depth_idx = Z.shape[2] // 2
     
     # Create figure with subplots
@@ -373,10 +229,10 @@ def create_3d_visualization(X, Y, Z, hoop_stress_fd, wellbore_radius, current_de
     wall_stress = kirsch_hoop_stress(
         wellbore_radius, 
         theta_grid - np.radians(current_azimuth),
-        sigma_H_3d[0,0,mid_depth_idx], 
-        sigma_h_3d[0,0,mid_depth_idx],
+        sigma_H[mid_depth_idx], 
+        sigma_h[mid_depth_idx],
         wellbore_radius, 
-        Pp_3d[0,0,mid_depth_idx]
+        Pp[mid_depth_idx]
     )
     
     fig.add_trace(
@@ -408,8 +264,8 @@ def create_3d_visualization(X, Y, Z, hoop_stress_fd, wellbore_radius, current_de
             value=shale_colors.flatten(),
             isomin=threshold,
             isomax=hoop_stress_fd.max(),
-            opacity=0.2, # More transparent for better visibility
-            surface_count=25, # More surfaces for smoother appearance
+            opacity=0.2,
+            surface_count=25,
             colorscale='hot',
             colorbar=dict(title='Hoop Stress (psi)'),
             caps=dict(x_show=False, y_show=False, z_show=False)
@@ -467,7 +323,7 @@ def create_3d_visualization(X, Y, Z, hoop_stress_fd, wellbore_radius, current_de
     arrow_length = wellbore_radius * 2.5
     
     for col in [1, 2]:
-        # North arrow (thicker and more visible)
+        # North arrow
         fig.add_trace(
             go.Scatter3d(
                 x=[0, 0],
@@ -483,7 +339,7 @@ def create_3d_visualization(X, Y, Z, hoop_stress_fd, wellbore_radius, current_de
             row=1, col=col
         )
         
-        # Stress direction (thicker and more visible)
+        # Stress direction
         fig.add_trace(
             go.Scatter3d(
                 x=[0, arrow_length*np.cos(np.radians(current_azimuth))],
@@ -829,11 +685,171 @@ def create_stress_profiles(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_
     
     return fig
 
-def kirsch_hoop_stress(r, theta, sigma_H, sigma_h, wellbore_radius, Pp):
-    term1 = (sigma_H + sigma_h)/2 * (1 + wellbore_radius**2/r**2)
-    term2 = (sigma_H - sigma_h)/2 * (1 + 3*wellbore_radius**4/r**4) * np.cos(2*theta)
-    term3 = -Pp * wellbore_radius**2/r**2
-    return term1 + term2 + term3
+def main():
+    # Main window layout with columns
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        st.header("Input Parameters")
+        
+        # LAS file upload
+        las_file = st.file_uploader("Upload LAS File", type=['las'])
+        
+        if las_file:
+            try:
+                # Create temporary file
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.las') as tmp:
+                    tmp.write(las_file.getvalue())
+                    tmp_path = tmp.name
+                
+                # Read LAS file
+                las = lasio.read(tmp_path)
+                os.unlink(tmp_path)
+                
+                st.success("LAS file successfully loaded!")
+                
+                # Get available curves
+                available_curves = list(las.curves.keys())
+                st.write("Available curves:", ", ".join(available_curves))
+                
+                # Wellbore geometry
+                wellbore_radius = st.number_input("Wellbore Radius (ft)", 0.1, 2.0, 0.328, 0.01)
+                
+                # Depth range selection
+                depth_curve_options = [c for c in available_curves if c.upper() in ['DEPT', 'DEPTH']]
+                if not depth_curve_options:
+                    st.error("No DEPT or DEPTH curve found in LAS file")
+                    return
+                
+                depth_curve = depth_curve_options[0]
+                depth_data = las[depth_curve]
+                valid_depth_indices = ~np.isnan(depth_data)
+                depth_data = depth_data[valid_depth_indices]
+                
+                if len(depth_data) == 0:
+                    st.error("No valid depth data found")
+                    return
+                
+                default_min = float(np.nanmin(depth_data))
+                default_max = float(np.nanmax(depth_data))
+                
+                min_depth = st.number_input("Minimum Depth (ft)", 
+                                          min_value=default_min, 
+                                          max_value=default_max, 
+                                          value=default_min)
+                max_depth = st.number_input("Maximum Depth (ft)", 
+                                          min_value=default_min, 
+                                          max_value=default_max, 
+                                          value=default_max)
+                
+                # Stress field selection
+                st.subheader("Select Stress Curves")
+                sigma_H_curve = st.selectbox("Maximum Horizontal Stress (σH) curve", 
+                                           options=available_curves,
+                                           index=0)
+                sigma_h_curve = st.selectbox("Minimum Horizontal Stress (σh) curve", 
+                                           options=available_curves,
+                                           index=min(1, len(available_curves)-1))
+                Pp_curve = st.selectbox("Pore Pressure (Pp) curve", 
+                                      options=available_curves,
+                                      index=min(2, len(available_curves)-1))
+                
+                # Well orientation data
+                st.subheader("Well Orientation")
+                azimuth_curve_options = [c for c in available_curves if c.upper() in ['AZIMUTH', 'AZI', 'AZ']]
+                if azimuth_curve_options:
+                    azimuth_curve = st.selectbox("Azimuth Curve", options=azimuth_curve_options)
+                    azimuth_data = las[azimuth_curve][valid_depth_indices]
+                    default_azimuth = np.nanmean(azimuth_data)
+                    if np.isnan(default_azimuth):
+                        default_azimuth = 0.0
+                    manual_azimuth = st.number_input("Manual Azimuth Override (°)", 
+                                                   min_value=0.0, 
+                                                   max_value=360.0, 
+                                                   value=float(default_azimuth))
+                else:
+                    st.warning("No azimuth curve found in LAS file")
+                    manual_azimuth = st.number_input("Enter Wellbore Azimuth (°)", 
+                                                    min_value=0.0, 
+                                                    max_value=360.0, 
+                                                    value=0.0)
+                    azimuth_data = np.full_like(depth_data, manual_azimuth)
+                
+                # Visualization settings
+                st.subheader("Visualization Settings")
+                threshold_percent = st.slider("Stress Concentration Threshold (%)", 30, 90, 50, 5)
+                resolution = st.selectbox("Model Resolution", ["Low", "Medium", "High"], index=1)
+                
+                # Get stress data
+                sigma_H_data = las[sigma_H_curve][valid_depth_indices]
+                sigma_h_data = las[sigma_h_curve][valid_depth_indices]
+                Pp_data = las[Pp_curve][valid_depth_indices]
+                
+                # Run calculations button
+                if st.button("Run Analysis"):
+                    with st.spinner("Calculating stresses..."):
+                        # Create stress vs depth plot
+                        with col2:
+                            st.subheader("Stress Field Profile")
+                            stress_plot = plot_stress_vs_depth(depth_data, sigma_H_data, sigma_h_data, Pp_data, min_depth, max_depth)
+                            st.plotly_chart(stress_plot, use_container_width=True)
+                        
+                        # Run calculations
+                        results = calculate_stresses(
+                            depth_data, sigma_H_data, sigma_h_data, Pp_data, azimuth_data,
+                            min_depth, max_depth, wellbore_radius, resolution
+                        )
+                        
+                        if results:
+                            mid_depth_idx = len(np.linspace(min_depth, max_depth, 5)) // 2
+                            current_depth = np.linspace(min_depth, max_depth, 5)[mid_depth_idx]
+                            current_azimuth = results['azimuth_3d'][0,0,mid_depth_idx]
+                            
+                            # Show raw stress data
+                            with col2:
+                                st.subheader("Analysis Results")
+                                st.write(f"Current depth: {current_depth:.0f} ft | Azimuth: {current_azimuth:.1f}°")
+                                
+                                col_a, col_b, col_c = st.columns(3)
+                                with col_a:
+                                    st.metric(f"σH at {current_depth:.0f} ft", f"{results['sigma_H_3d'][0,0,mid_depth_idx]:.0f} psi")
+                                with col_b:
+                                    st.metric(f"σh at {current_depth:.0f} ft", f"{results['sigma_h_3d'][0,0,mid_depth_idx]:.0f} psi")
+                                with col_c:
+                                    st.metric(f"Pp at {current_depth:.0f} ft", f"{results['Pp_3d'][0,0,mid_depth_idx]:.0f} psi")
+                            
+                            # Create analysis plots
+                            with col2:
+                                st.subheader("3D Visualization")
+                                fig_3d = create_3d_visualization(
+                                    results['X'], results['Y'], results['Z'], results['hoop_stress_fd'],
+                                    wellbore_radius, current_depth, current_azimuth,
+                                    threshold_percent,
+                                    results['sigma_H'], results['sigma_h'], results['Pp']
+                                )
+                                st.plotly_chart(fig_3d, use_container_width=True)
+                                
+                                st.subheader("2D Plots")
+                                polar_fig, cartesian_fig = create_2d_plots(
+                                    results['R'], results['Theta'], results['Depth'], results['hoop_stress_fd'],
+                                    results['sigma_H_3d'], results['sigma_h_3d'], results['Pp_3d'],
+                                    wellbore_radius, current_depth, current_azimuth
+                                )
+                                st.plotly_chart(polar_fig, use_container_width=True)
+                                st.plotly_chart(cartesian_fig, use_container_width=True)
+                                
+                                st.subheader("Stress Profiles")
+                                fig_profiles = create_stress_profiles(
+                                    results['R'], results['Theta'], results['Depth'], results['hoop_stress_fd'],
+                                    results['sigma_H_3d'], results['sigma_h_3d'], results['Pp_3d'],
+                                    wellbore_radius, current_depth, current_azimuth
+                                )
+                                st.plotly_chart(fig_profiles, use_container_width=True)
+                
+            except Exception as e:
+                st.error(f"Error processing LAS file: {str(e)}")
+        else:
+            st.warning("Please upload a LAS file to proceed")
 
 if __name__ == "__main__":
     main()
