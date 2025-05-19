@@ -542,7 +542,7 @@ def create_2d_plots(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_
         text=['', 'σH'],
         textfont=dict(size=14),
         textposition='top center',
-        name='Max Stress Direction'
+        name='Minimum Stress Direction'
     ))
     
     # Add quadrant lines for reference
