@@ -161,12 +161,13 @@ def main():
                                 st.plotly_chart(fig_3d, use_container_width=True)
                                 
                                 st.subheader("2D Plots")
-                                fig_2d = create_2d_plots(
+                                polar_fig, cartesian_fig = create_2d_plots(
                                     R, Theta, Depth, hoop_stress_fd,
                                     sigma_H_3d, sigma_h_3d, Pp_3d,
                                     wellbore_radius, current_depth, current_azimuth
                                 )
-                                st.plotly_chart(fig_2d, use_container_width=True)
+                                st.plotly_chart(polar_fig, use_container_width=True)
+                                st.plotly_chart(cartesian_fig, use_container_width=True)
                                 
                                 st.subheader("Stress Profiles")
                                 fig_profiles = create_stress_profiles(
@@ -476,21 +477,29 @@ def create_2d_plots(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_
         Pp_3d[0,0,mid_depth_idx]
     )
     
-    # Create separate figures for polar and Cartesian plots
+    # Create polar figure
     polar_fig = go.Figure()
-    cartesian_fig = go.Figure()
     
-    # Polar plot using heatmap
-    polar_fig.add_trace(go.Barpolar(
+    # Convert to Cartesian coordinates for polar plot
+    X_polar = R_2D * np.cos(Theta_2D)
+    Y_polar = R_2D * np.sin(Theta_2D)
+    
+    # Create heatmap using scatter plot in polar coordinates
+    polar_fig.add_trace(go.Scatterpolar(
         r=R_2D.flatten(),
         theta=np.degrees(Theta_2D).flatten(),
+        mode='markers',
         marker=dict(
             color=hoop_stress_2D.flatten(),
             colorscale='jet',
             showscale=True,
+            size=8,
+            opacity=0.7,
             colorbar=dict(title='Hoop Stress (psi)')
         ),
-        opacity=0.8
+        hoverinfo='r+theta+text',
+        text=[f'Stress: {stress:.0f} psi' for stress in hoop_stress_2D.flatten()],
+        showlegend=False
     ))
     
     # Add compass directions
@@ -527,6 +536,9 @@ def create_2d_plots(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_
         showlegend=True,
         height=500
     )
+    
+    # Create Cartesian figure
+    cartesian_fig = go.Figure()
     
     # Cartesian plot
     X_2D = R_2D * np.cos(Theta_2D)
@@ -580,7 +592,6 @@ def create_2d_plots(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_
         showlegend=True
     )
     
-    # Return figures separately since we can't combine polar and Cartesian in subplots
     return polar_fig, cartesian_fig
 
 def create_stress_profiles(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_3d,
