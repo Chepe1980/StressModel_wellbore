@@ -476,113 +476,47 @@ def create_2d_plots(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_
         Pp_3d[0,0,mid_depth_idx]
     )
     
-    # Create figure with subplots
-    fig = make_subplots(
-        rows=1, cols=2,
-        specs=[[{'type': 'polar'}, {'type': 'xy'}]],
-        subplot_titles=(
-            f'Polar Stress Distribution at {current_depth:.0f} ft',
-            f'Cartesian Stress Distribution at {current_depth:.0f} ft'
-        )
-    )
+    # Create separate figures for polar and Cartesian plots
+    polar_fig = go.Figure()
+    cartesian_fig = go.Figure()
     
-    # Polar plot - convert to Cartesian coordinates
-    X_polar = R_2D * np.cos(Theta_2D)
-    Y_polar = R_2D * np.sin(Theta_2D)
-    
-    fig.add_trace(
-        go.Contour(
-            x=X_polar.flatten(),
-            y=Y_polar.flatten(),
-            z=hoop_stress_2D.flatten(),
+    # Polar plot using heatmap
+    polar_fig.add_trace(go.Barpolar(
+        r=R_2D.flatten(),
+        theta=np.degrees(Theta_2D).flatten(),
+        marker=dict(
+            color=hoop_stress_2D.flatten(),
             colorscale='jet',
-            contours=dict(
-                coloring='heatmap',
-                showlines=False
-            ),
-            showscale=False
+            showscale=True,
+            colorbar=dict(title='Hoop Stress (psi)')
         ),
-        row=1, col=1
-    )
+        opacity=0.8
+    ))
     
     # Add compass directions
     compass_radius = 1.1 * R_2D.max()
     for angle, label in [(0, 'N'), (90, 'E'), (180, 'S'), (270, 'W')]:
-        fig.add_trace(
-            go.Scatterpolar(
-                r=[0, compass_radius],
-                theta=[angle, angle],
-                mode='lines+text',
-                line=dict(color='black', width=1),
-                text=['', label],
-                textposition='top center',
-                showlegend=False,
-                subplot='polar'
-            )
-        )
-    
-    # Add stress direction marker
-    fig.add_trace(
-        go.Scatterpolar(
-            r=[0, wellbore_radius*1.5],
-            theta=[current_azimuth, current_azimuth],
-            mode='lines',
-            line=dict(color='red', width=3),
-            name='σH Direction',
-            subplot='polar'
-        )
-    )
-    
-    # Cartesian plot
-    X_2D = R_2D * np.cos(Theta_2D)
-    Y_2D = R_2D * np.sin(Theta_2D)
-    
-    fig.add_trace(
-        go.Contour(
-            x=X_2D[0,:],
-            y=Y_2D[:,0],
-            z=hoop_stress_2D,
-            colorscale='jet',
-            contours=dict(
-                coloring='heatmap',
-                showlines=False
-            ),
-            colorbar=dict(title='Hoop Stress (psi)'),
-            showscale=True
-        ),
-        row=1, col=2
-    )
-    
-    # Add North arrow
-    fig.add_trace(
-        go.Scatter(
-            x=[0, 0],
-            y=[0, wellbore_radius*1.2],
+        polar_fig.add_trace(go.Scatterpolar(
+            r=[0, compass_radius],
+            theta=[angle, angle],
             mode='lines+text',
-            line=dict(color='black', width=2),
-            text=['', 'N'],
+            line=dict(color='black', width=1),
+            text=['', label],
             textposition='top center',
             showlegend=False
-        ),
-        row=1, col=2
-    )
+        ))
     
-    # Add stress direction indicator
-    fig.add_trace(
-        go.Scatter(
-            x=[0, wellbore_radius*1.5*np.cos(theta_offset)],
-            y=[0, wellbore_radius*1.5*np.sin(theta_offset)],
-            mode='lines+text',
-            line=dict(color='red', width=2),
-            text=['', 'σH'],
-            textposition='top center',
-            name='σH Direction'
-        ),
-        row=1, col=2
-    )
+    # Add stress direction marker
+    polar_fig.add_trace(go.Scatterpolar(
+        r=[0, wellbore_radius*1.5],
+        theta=[current_azimuth, current_azimuth],
+        mode='lines',
+        line=dict(color='red', width=3),
+        name='σH Direction'
+    ))
     
-    fig.update_layout(
-        height=500,
+    polar_fig.update_layout(
+        title=f'Polar Stress Distribution at {current_depth:.0f} ft',
         polar=dict(
             radialaxis=dict(visible=True),
             angularaxis=dict(
@@ -590,17 +524,64 @@ def create_2d_plots(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_
                 direction="clockwise"
             )
         ),
+        showlegend=True,
+        height=500
+    )
+    
+    # Cartesian plot
+    X_2D = R_2D * np.cos(Theta_2D)
+    Y_2D = R_2D * np.sin(Theta_2D)
+    
+    cartesian_fig.add_trace(go.Contour(
+        x=X_2D[0,:],
+        y=Y_2D[:,0],
+        z=hoop_stress_2D,
+        colorscale='jet',
+        contours=dict(
+            coloring='heatmap',
+            showlines=False
+        ),
+        colorbar=dict(title='Hoop Stress (psi)')
+    ))
+    
+    # Add North arrow
+    cartesian_fig.add_trace(go.Scatter(
+        x=[0, 0],
+        y=[0, wellbore_radius*1.2],
+        mode='lines+text',
+        line=dict(color='black', width=2),
+        text=['', 'N'],
+        textposition='top center',
+        showlegend=False
+    ))
+    
+    # Add stress direction indicator
+    cartesian_fig.add_trace(go.Scatter(
+        x=[0, wellbore_radius*1.5*np.cos(theta_offset)],
+        y=[0, wellbore_radius*1.5*np.sin(theta_offset)],
+        mode='lines+text',
+        line=dict(color='red', width=2),
+        text=['', 'σH'],
+        textposition='top center',
+        name='σH Direction'
+    ))
+    
+    cartesian_fig.update_layout(
+        title=f'Cartesian Stress Distribution at {current_depth:.0f} ft',
+        xaxis=dict(
+            scaleanchor="y",
+            scaleratio=1
+        ),
+        yaxis=dict(
+            scaleanchor="x",
+            scaleratio=1
+        ),
+        height=500,
         showlegend=True
     )
     
-    # Set equal aspect ratio for Cartesian plot
-    fig.update_yaxes(
-        scaleanchor="x",
-        scaleratio=1,
-        row=1, col=2
-    )
-    
-    return fig
+    # Return figures separately since we can't combine polar and Cartesian in subplots
+    return polar_fig, cartesian_fig
 
 def create_stress_profiles(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_3d, Pp_3d,
                          wellbore_radius, current_depth, current_azimuth):
