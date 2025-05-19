@@ -7,6 +7,7 @@ import streamlit as st
 import lasio
 import tempfile
 import os
+from PIL import Image
 
 # Page configuration
 st.set_page_config(layout="wide")
