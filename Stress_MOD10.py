@@ -159,6 +159,109 @@ def plot_stress_vs_depth(depth, sigma_H, sigma_h, Pp, min_depth, max_depth):
     
     return fig
 
+def plot_far_field_stress(sigma_H, sigma_h, Pp, depth):
+    """Create polar plot of far-field stress components"""
+    theta = np.linspace(0, 2*np.pi, 360)
+    sigma_xx, sigma_yy, sigma_xy = far_field_stress(sigma_H, sigma_h, theta)
+    
+    fig = go.Figure()
+    
+    # Add stress components
+    fig.add_trace(go.Scatterpolar(
+        r=sigma_xx,
+        theta=np.degrees(theta),
+        mode='lines',
+        name='σxx',
+        line=dict(color='red')
+    ))
+    
+    fig.add_trace(go.Scatterpolar(
+        r=sigma_yy,
+        theta=np.degrees(theta),
+        mode='lines',
+        name='σyy',
+        line=dict(color='blue')
+    ))
+    
+    fig.add_trace(go.Scatterpolar(
+        r=sigma_xy,
+        theta=np.degrees(theta),
+        mode='lines',
+        name='σxy',
+        line=dict(color='green')
+    ))
+    
+    # Add pore pressure as reference
+    fig.add_trace(go.Scatterpolar(
+        r=[Pp]*360,
+        theta=np.degrees(theta),
+        mode='lines',
+        name='Pore Pressure',
+        line=dict(color='black', dash='dot')
+    ))
+    
+    # Add direction indicators
+    fig.add_trace(go.Scatterpolar(
+        r=[0, 1.2*sigma_H],
+        theta=[0, 0],
+        mode='lines+text',
+        line=dict(color='red', width=3),
+        text=['', 'σH'],
+        textposition='top center',
+        showlegend=False
+    ))
+    
+    fig.add_trace(go.Scatterpolar(
+        r=[0, 1.2*sigma_h],
+        theta=[90, 90],
+        mode='lines+text',
+        line=dict(color='blue', width=3),
+        text=['', 'σh'],
+        textposition='top center',
+        showlegend=False
+    ))
+    
+    fig.update_layout(
+        title=f'Far-Field Stress Components at {depth:.0f} ft',
+        polar=dict(
+            radialaxis=dict(
+                title='Stress (psi)',
+                range=[0, max(sigma_H, sigma_h)*1.2]
+            ),
+            angularaxis=dict(
+                rotation=90,
+                direction="clockwise"
+            )
+        ),
+        height=500,
+        showlegend=True
+    )
+    
+    return fig
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def calculate_stresses(depth_data, sigma_H_data, sigma_h_data, Pp_data, azimuth_data,
                      min_depth, max_depth, wellbore_radius, resolution):
     # Set resolution parameters
