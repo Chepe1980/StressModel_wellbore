@@ -907,7 +907,7 @@ def create_3d_stress_distribution(X, Y, Z, hoop_stress, wellbore_radius, current
         z=Z[:,:,0],
         x=X[:,:,0],
         y=Y[:,:,0],
-        surfacecolor=hoop_stress
+        surfacecolor=hoop_stress,
                 colorscale='jet',
         colorbar=dict(title='Hoop Stress (psi)'),
         opacity=0.9,
