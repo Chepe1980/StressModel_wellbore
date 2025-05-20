@@ -16,6 +16,7 @@ st.title("Wellbore Stress Analysis with LAS Data")
 # add logo
 logo = Image.open('stress1.png')
 st.sidebar.image(logo, width=200)
+
 st.markdown("""
 This app calculates hoop stress distribution around a wellbore using stress field data from LAS files.
 All results are displayed in psi (pressure units).
@@ -739,7 +740,7 @@ def create_stress_profiles(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_
         line=dict(color='blue')
     ), row=1, col=2)
     
-    # 3. Depth profile of maximum stress
+    # 3. Depth profile of maximum and minimum stress
     max_stress = np.max(hoop_stress_fd, axis=(0,1))
     min_stress = np.min(hoop_stress_fd, axis=(0,1))
     
@@ -759,10 +760,20 @@ def create_stress_profiles(R, Theta, Depth, hoop_stress_fd, sigma_H_3d, sigma_h_
         line=dict(color='blue')
     ), row=2, col=1)
     
+    # Add pore pressure for reference
+    fig.add_trace(go.Scatter(
+        x=Pp_3d[0,0,:],
+        y=Depth[0,0,:],
+        mode='lines',
+        name='Pore Pressure',
+        line=dict(color='green', dash='dash')
+    ), row=2, col=1)
+    
     # Update layout
     fig.update_layout(
         height=700,
-        showlegend=True
+        showlegend=True,
+        title_text=f'Stress Profiles at {current_depth:.0f} ft'
     )
     
     # Update axis labels
@@ -784,14 +795,15 @@ def create_3d_stress_distribution(X, Y, Z, hoop_stress, wellbore_radius, current
     
     # Create a 3D surface plot of the stress distribution
     fig.add_trace(go.Surface(
+        z=Z[:,:,0],
         x=X[:,:,0],
         y=Y[:,:,0],
-        z=Z[:,:,0],
-        surfacecolor=hoop_stress[:,:,0],
+        surfacecolor=hoop_stress[:,:,0],  # Color by hoop stress
         colorscale='jet',
         colorbar=dict(title='Hoop Stress (psi)'),
         opacity=0.9,
-        name='Stress Distribution'
+        name='Stress Distribution',
+        showscale=True
     ))
     
     # Add wellbore wall
